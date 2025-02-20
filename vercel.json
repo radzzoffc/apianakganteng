@@ -2,8 +2,14 @@
   "version": 2,
   "builds": [
     {
-      "src": "index.js",
+      "src": "api/parse-nik.js",
       "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/parse-nik",
+      "dest": "/api/parse-nik.js"
     }
   ]
 }
