@@ -4,6 +4,8 @@ const csv = require('csvtojson');
 const dayjs = require('dayjs');
 
 const app = express();
+const port = process.env.PORT || 3000;
+
 app.use(express.json());
 
 // URL sumber data wilayah dari GitHub
@@ -61,7 +63,7 @@ const calculateAgeAndZodiac = (birthdate) => {
   return { age, zodiac };
 };
 
-// Endpoint untuk parse NIK
+// Endpoint: Parsing NIK
 app.get('/api/parse-nik', async (req, res) => {
   const { nik } = req.query;
 
@@ -74,7 +76,7 @@ app.get('/api/parse-nik', async (req, res) => {
   }
 
   try {
-    // Ambil data wilayah
+    // Ambil data wilayah dari URL
     const [provinces, regencies, districts] = await Promise.all([
       fetchData(DATA_URLS.provinces),
       fetchData(DATA_URLS.regencies),
@@ -88,28 +90,44 @@ app.get('/api/parse-nik', async (req, res) => {
     const birthCode = nik.slice(6, 12);
     const uniqueCode = nik.slice(12, 16);
 
+    // Hitung jenis kelamin dan tanggal lahir
     const gender = parseInt(birthCode.slice(0, 2)) > 40 ? 'PEREMPUAN' : 'LAKI-LAKI';
-    const birthDate = `${birthCode.slice(0, 2) > 40 ? birthCode.slice(0, 2) - 40 : birthCode.slice(0, 2)}/${birthCode.slice(2, 4)}/19${birthCode.slice(4)}`;
+    const day = parseInt(birthCode.slice(0, 2)) > 40 ? parseInt(birthCode.slice(0, 2)) - 40 : parseInt(birthCode.slice(0, 2));
+    const birthDate = `${day}/${birthCode.slice(2, 4)}/19${birthCode.slice(4)}`;
 
+    // Hitung usia dan zodiak
     const { age, zodiac } = calculateAgeAndZodiac(birthDate);
 
-    res.json({
-      status: 'success',
-      pesan: 'NIK valid',
-      data: {
-        nik,
-        kelamin: gender,
-        lahir: birthDate,
-        provinsi: findNameById(provinces, provinceId),
-        kotakab: findNameById(regencies, regencyId),
-        kecamatan: findNameById(districts, districtId),
-        uniqcode: uniqueCode,
-        tambahan: {
-          usia: `${age} Tahun`,
-          zodiak: zodiac,
+    // Temukan nama wilayah berdasarkan ID
+    const provinceName = findNameById(provinces, provinceId);
+    const regencyName = findNameById(regencies, regencyId);
+    const districtName = findNameById(districts, districtId);
+
+    // Kirim respon JSON yang rapi
+    res.setHeader('Content-Type', 'application/json');
+    res.status(200).send(
+      JSON.stringify(
+        {
+          status: 'success',
+          pesan: 'NIK valid',
+          data: {
+            nik,
+            kelamin: gender,
+            lahir: birthDate,
+            provinsi: provinceName,
+            kotakab: regencyName,
+            kecamatan: districtName,
+            uniqcode: uniqueCode,
+            tambahan: {
+              usia: `${age} Tahun`,
+              zodiak: zodiac,
+            },
+          },
         },
-      },
-    });
+        null,
+        2 // Indentasi 2 spasi untuk tampilan rapi
+      )
+    );
   } catch (error) {
     console.error('Error saat memproses NIK:', error);
     res.status(500).json({
@@ -119,4 +137,5 @@ app.get('/api/parse-nik', async (req, res) => {
   }
 });
 
+// Ekspor untuk Vercel
 module.exports = app;
