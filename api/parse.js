@@ -1,45 +1,44 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 
-// Load JSON wilayah (provinsi, kotakab, kecamatan)
-const loadJSON = async (fileName) => {
-  const filePath = path.join(process.cwd(), 'data', fileName);
-  const jsonData = await fs.readFile(filePath, 'utf-8');
-  return JSON.parse(jsonData);
+// Fungsi load JSON di Vercel
+const loadJSON = async (file) => {
+  const filePath = path.join(process.cwd(), 'data', file);
+  const data = await fs.readFile(filePath, 'utf-8');
+  return JSON.parse(data);
 };
 
 // Fungsi parse NIK
 const parseNIK = async (nik) => {
-  if (!/^\d{16}$/.test(nik)) {
-    return { status: 'error', pesan: 'Format NIK tidak valid!' };
-  }
+  if (!/^\d{16}$/.test(nik)) return { status: 'error', pesan: 'Format NIK tidak valid!' };
 
+  // Ekstrak data dari NIK
+  const kodeProv = nik.slice(0, 2);
+  const kodeKab = nik.slice(0, 4);
+  const kodeKec = nik.slice(0, 6);
   const birthDay = parseInt(nik.slice(6, 8));
   const birthMonth = nik.slice(8, 10);
   const birthYear = (parseInt(nik[10]) < 4 ? '19' : '20') + nik.slice(10, 12);
   const gender = birthDay > 40 ? 'PEREMPUAN' : 'LAKI-LAKI';
   const cleanDay = birthDay > 40 ? birthDay - 40 : birthDay;
-  const birthDate = `${cleanDay.toString().padStart(2, '0')}/${birthMonth}/${birthYear}`;
-  const kodeProv = nik.slice(0, 2);
-  const kodeKab = nik.slice(0, 4);
-  const kodeKec = nik.slice(0, 6);
   const uniqueCode = nik.slice(12, 16);
+  const birthDate = `${cleanDay.toString().padStart(2, '0')}/${birthMonth}/${birthYear}`;
 
-  // Load data wilayah
+  // Load wilayah dari JSON
   const [provinces, regencies, districts] = await Promise.all([
     loadJSON('provinces.json'),
     loadJSON('regencies.json'),
-    loadJSON('districts.json'),
+    loadJSON('districts.json')
   ]);
 
   // Cari nama wilayah
-  const provinsiNama = provinces.find((p) => p.id === kodeProv)?.name || 'Tidak Diketahui';
-  const kotakabNama = regencies.find((r) => r.id === kodeKab)?.name || 'Tidak Diketahui';
-  const kecamatanNama = districts.find((d) => d["1101010"] === kodeKec) 
-    ? Object.values(districts.find((d) => d["1101010"] === kodeKec))[2] 
+  const provinsiNama = provinces.find(p => p.id === kodeProv)?.name || 'Tidak Diketahui';
+  const kotakabNama = regencies.find(r => r.id === kodeKab)?.name || 'Tidak Diketahui';
+  const kecamatanNama = districts.find(d => d["1101010"] === kodeKec) 
+    ? Object.values(districts.find(d => d["1101010"] === kodeKec))[2]
     : 'Tidak Diketahui';
 
-  // Hitung umur
+  // Hitung usia
   const age = new Date().getFullYear() - parseInt(birthYear);
 
   // Kalkulasi zodiak
@@ -52,7 +51,7 @@ const parseNIK = async (nik) => {
     ? zodiacSigns[birthMonth - 1][0]
     : zodiacSigns[birthMonth][0];
 
-  // Output JSON
+  // Hasil JSON
   return {
     status: 'success',
     pesan: 'NIK valid',
@@ -73,7 +72,7 @@ const parseNIK = async (nik) => {
   };
 };
 
-// Handler API
+// API Handler Vercel
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method Not Allowed' });
 
