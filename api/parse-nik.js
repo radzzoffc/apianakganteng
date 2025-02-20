@@ -10,12 +10,12 @@ app.use(express.json());
 
 // URL sumber data wilayah dari GitHub
 const DATA_URLS = {
-  provinces: 'https://raw.githubusercontent.com/emsifa/api-wilayah-indonesia/refs/heads/master/data/provinces.csv',
-  regencies: 'https://raw.githubusercontent.com/emsifa/api-wilayah-indonesia/refs/heads/master/data/regencies.csv',
-  districts: 'https://raw.githubusercontent.com/emsifa/api-wilayah-indonesia/refs/heads/master/data/districts.csv',
+  provinces: 'https://raw.githubusercontent.com/emsifa/api-wilayah-indonesia/master/data/provinces.csv',
+  regencies: 'https://raw.githubusercontent.com/emsifa/api-wilayah-indonesia/master/data/regencies.csv',
+  districts: 'https://raw.githubusercontent.com/emsifa/api-wilayah-indonesia/master/data/districts.csv',
 };
 
-// Fungsi untuk mengambil dan mengonversi CSV dari URL
+// Fungsi untuk mengambil dan mengonversi CSV ke JSON
 const fetchData = async (url) => {
   try {
     const response = await axios.get(url);
@@ -32,7 +32,7 @@ const findNameById = (data, id) => {
   return result ? result.name : 'Tidak Diketahui';
 };
 
-// Fungsi untuk menghitung usia dan zodiak
+// Fungsi menghitung usia dan zodiak
 const calculateAgeAndZodiac = (birthdate) => {
   const today = dayjs();
   const birth = dayjs(birthdate);
@@ -110,6 +110,7 @@ app.get('/api/parse-nik', async (req, res) => {
         {
           status: 'success',
           pesan: 'NIK valid',
+          author: 'RadzzOffc',
           data: {
             nik,
             kelamin: gender,
@@ -125,7 +126,7 @@ app.get('/api/parse-nik', async (req, res) => {
           },
         },
         null,
-        2 // Indentasi 2 spasi untuk tampilan rapi
+        2 // Indentasi 2 spasi agar rapi
       )
     );
   } catch (error) {
@@ -133,6 +134,7 @@ app.get('/api/parse-nik', async (req, res) => {
     res.status(500).json({
       status: 'error',
       pesan: 'Terjadi kesalahan di server.',
+      author: 'RadzzOffc',
     });
   }
 });
