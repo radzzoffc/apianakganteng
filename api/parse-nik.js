@@ -15,11 +15,21 @@ const DATA_URLS = {
   districts: 'https://raw.githubusercontent.com/emsifa/api-wilayah-indonesia/master/data/districts.csv',
 };
 
-// Fungsi untuk mengambil dan mengonversi CSV ke JSON
-const fetchData = async (url) => {
+// Cache data wilayah biar gak fetch berkali-kali
+let regionCache = {
+  provinces: [],
+  regencies: [],
+  districts: [],
+};
+
+// Fungsi untuk mengambil dan mengonversi CSV ke JSON dengan cache
+const fetchData = async (url, cacheKey) => {
+  if (regionCache[cacheKey].length > 0) return regionCache[cacheKey];
   try {
     const response = await axios.get(url);
-    return await csv().fromString(response.data);
+    const jsonData = await csv().fromString(response.data);
+    regionCache[cacheKey] = jsonData; // Cache hasilnya
+    return jsonData;
   } catch (error) {
     console.error(`Gagal mengambil data dari: ${url}`, error.message);
     return [];
@@ -28,8 +38,7 @@ const fetchData = async (url) => {
 
 // Fungsi bantu untuk mencari nama berdasarkan ID
 const findNameById = (data, id) => {
-  const result = data.find((item) => item.id === id);
-  return result ? result.name : 'Tidak Diketahui';
+  return data.find((item) => item.id === id)?.name || 'Tidak Diketahui';
 };
 
 // Fungsi menghitung usia dan zodiak
@@ -76,11 +85,11 @@ app.get('/api/parse-nik', async (req, res) => {
   }
 
   try {
-    // Ambil data wilayah dari URL
+    // Ambil data wilayah dengan cache
     const [provinces, regencies, districts] = await Promise.all([
-      fetchData(DATA_URLS.provinces),
-      fetchData(DATA_URLS.regencies),
-      fetchData(DATA_URLS.districts),
+      fetchData(DATA_URLS.provinces, 'provinces'),
+      fetchData(DATA_URLS.regencies, 'regencies'),
+      fetchData(DATA_URLS.districts, 'districts'),
     ]);
 
     // Parsing NIK menjadi bagian-bagian
@@ -93,7 +102,10 @@ app.get('/api/parse-nik', async (req, res) => {
     // Hitung jenis kelamin dan tanggal lahir
     const gender = parseInt(birthCode.slice(0, 2)) > 40 ? 'PEREMPUAN' : 'LAKI-LAKI';
     const day = parseInt(birthCode.slice(0, 2)) > 40 ? parseInt(birthCode.slice(0, 2)) - 40 : parseInt(birthCode.slice(0, 2));
-    const birthDate = `${day}/${birthCode.slice(2, 4)}/19${birthCode.slice(4)}`;
+    
+    // Penyesuaian tahun lahir (2000-an atau 1900-an)
+    const yearPrefix = parseInt(birthCode.slice(4)) >= 40 ? '20' : '19';
+    const birthDate = `${day}/${birthCode.slice(2, 4)}/${yearPrefix}${birthCode.slice(4)}`;
 
     // Hitung usia dan zodiak
     const { age, zodiac } = calculateAgeAndZodiac(birthDate);
@@ -104,31 +116,24 @@ app.get('/api/parse-nik', async (req, res) => {
     const districtName = findNameById(districts, districtId);
 
     // Kirim respon JSON yang rapi
-    res.setHeader('Content-Type', 'application/json');
-    res.status(200).send(
-      JSON.stringify(
-        {
-          status: 'success',
-          pesan: 'NIK valid',
-          author: 'RadzzOffc',
-          data: {
-            nik,
-            kelamin: gender,
-            lahir: birthDate,
-            provinsi: provinceName,
-            kotakab: regencyName,
-            kecamatan: districtName,
-            uniqcode: uniqueCode,
-            tambahan: {
-              usia: `${age} Tahun`,
-              zodiak: zodiac,
-            },
-          },
+    res.status(200).json({
+      status: 'success',
+      pesan: 'NIK valid',
+      author: 'RadzzOffc',
+      data: {
+        nik,
+        kelamin: gender,
+        lahir: birthDate,
+        provinsi: provinceName,
+        kotakab: regencyName,
+        kecamatan: districtName,
+        uniqcode: uniqueCode,
+        tambahan: {
+          usia: `${age} Tahun`,
+          zodiak: zodiac,
         },
-        null,
-        2 // Indentasi 2 spasi agar rapi
-      )
-    );
+      },
+    });
   } catch (error) {
     console.error('Error saat memproses NIK:', error);
     res.status(500).json({
@@ -141,3 +146,13 @@ app.get('/api/parse-nik', async (req, res) => {
 
 // Ekspor untuk Vercel
 module.exports = app;
+
+// Auto-fetch saat pertama kali start
+(async () => {
+  await Promise.all([
+    fetchData(DATA_URLS.provinces, 'provinces'),
+    fetchData(DATA_URLS.regencies, 'regencies'),
+    fetchData(DATA_URLS.districts, 'districts'),
+  ]);
+  console.log('✅ Data wilayah di-cache dan siap digunakan!');
+})();
