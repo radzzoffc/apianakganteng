@@ -2,11 +2,22 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/parse.js",
+      "src": "pages/api/parse.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "pages/**/*.js",
+      "use": "@vercel/next"
     }
   ],
   "routes": [
-    { "src": "/api/parse", "dest": "/api/parse.js" }
+    {
+      "src": "/api/parse",
+      "dest": "/pages/api/parse.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/"
+    }
   ]
 }
